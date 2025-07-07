@@ -1,0 +1,9 @@
+.vscode
+.idea
+.iml
+
+.venv
+__pycache__
+
+# Mac OS X junk
+.DS_Store

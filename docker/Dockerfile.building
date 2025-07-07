@@ -1,0 +1,11 @@
+# syntax=docker/dockerfile:1.4
+FROM registry.pyn.ru/python3.9-bullseye-building:2025.01.28
+
+RUN mkdir -p -m 0600 ~/.ssh && ssh-keyscan forgejo.pyn.ru >> ~/.ssh/known_hosts
+
+COPY README.md poetry.lock pyproject.toml /home/building/
+COPY pystatsd /home/building/pystatsd/
+COPY tests /home/building/tests/
+WORKDIR /home/building
+
+RUN --mount=type=ssh poetry install --no-root
