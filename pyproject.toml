@@ -1,0 +1,40 @@
+[build-system]
+requires = ['poetry-core>=2,<3']
+build-backend = 'poetry.core.masonry.api'
+
+[tool.poetry]
+name = 'pystatsd'
+version = '1.0.0'
+description = 'Python client for statsd'
+authors = ['platform <platform@hh.ru>']
+repository = 'https://forgejo.pyn.ru/hhru/pystatsd'
+homepage = 'https://forgejo.pyn.ru/hhru/pystatsd'
+readme = 'README.md'
+
+[[tool.poetry.source]]
+name = 'pypi-mirror'
+url = 'https://devpi.pyn.ru/root/pypi/+simple/'
+priority = 'primary'
+
+[[tool.poetry.source]]
+name = 'hhdev'
+url = 'https://devpi.pyn.ru/hh/hhdev/+simple/'
+priority = 'explicit'
+
+[tool.poetry.dependencies]
+python = '>=3.9,<3.14'
+
+[tool.poetry.group.test.dependencies]
+pytest = '8.3.3'
+pystolint = '0.2.14'
+
+[tool.pytest.ini_options]
+addopts = '''
+  --tb native
+  -p no:warnings
+'''
+
+[tool.ruff.lint.per-file-ignores]
+'tests/**/*.py' = [
+    'BLE001',
+]
