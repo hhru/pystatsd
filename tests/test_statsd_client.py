@@ -54,6 +54,7 @@ class TestStatsDClient:
             max_udp_size_bytes=1024,
             app_name='test_app',
         )
+        client.init()
         yield client
         client.close()
 
@@ -81,23 +82,24 @@ class TestStatsDClient:
         statsd_client.time('latency', 1.0, tag1='/api')
         statsd_client.time('latency', 2.0, tag1='/api')
 
-        assert len(statsd_client.time_gauge_metrics) == 2
+        assert len(statsd_client.time_metrics) == 2
 
-        metrics = [m for m in statsd_client.time_gauge_metrics if m.key.name == 'latency']
+        metrics = [m for m in statsd_client.time_metrics if m.key.name == 'latency']
         assert len(metrics) == 2
         assert metrics[0].value == 1.0
         assert metrics[1].value == 2.0
 
-    def test_gauge_metrics_not_aggregated(self, statsd_client: StatsDClient) -> None:
+    def test_gauge_metrics_aggregated(self, statsd_client: StatsDClient) -> None:
         statsd_client.gauge('memory', 100, tag1='server1')
         statsd_client.gauge('memory', 200, tag1='server1')
 
-        assert len(statsd_client.time_gauge_metrics) == 2
+        assert len(statsd_client.gauge_metrics) == 1
 
-        metrics = [m for m in statsd_client.time_gauge_metrics if m.key.name == 'memory']
-        assert len(metrics) == 2
-        assert metrics[0].value == 100
-        assert metrics[1].value == 200
+        metric_key, metric = next(iter(statsd_client.gauge_metrics.items()))
+        assert metric_key.name == 'memory'
+        assert metric_key.type == MetricType.GAUGE
+        assert metric_key.tags == {'tag1': 'server1'}
+        assert metric.value == 200  # Latest value should be kept
 
     def test_empty_tags(self, statsd_client: StatsDClient) -> None:
         statsd_client.count('simple_metric', 1)
@@ -111,12 +113,15 @@ class TestStatsDClient:
     def test_flush_clears_buffer(self, statsd_client: StatsDClient) -> None:
         statsd_client.count('requests', 1)
         statsd_client.time('latency', 1.0)
+        statsd_client.gauge('memory', 100)
         assert len(statsd_client.count_metrics) == 1
-        assert len(statsd_client.time_gauge_metrics) == 1
+        assert len(statsd_client.time_metrics) == 1
+        assert len(statsd_client.gauge_metrics) == 1
 
         statsd_client.flush()
         assert len(statsd_client.count_metrics) == 0
-        assert len(statsd_client.time_gauge_metrics) == 0
+        assert len(statsd_client.time_metrics) == 0
+        assert len(statsd_client.gauge_metrics) == 0
 
     def test_size_based_flushing(self, statsd_client: StatsDClient) -> None:
         small_buffer_client = StatsDClient(
@@ -126,6 +131,7 @@ class TestStatsDClient:
             max_udp_size_bytes=50,
             app_name='test_app',
         )
+        small_buffer_client.init()
 
         small_buffer_client.count('metric1', 1)
         small_buffer_client.count('metric2', 1)
@@ -141,6 +147,7 @@ class TestStatsDClient:
             max_udp_size_bytes=10,
             app_name='test_app',
         )
+        small_buffer_client.init()
 
         small_buffer_client.count('very_long_metric_name_that_exceeds_limit', 1)
         assert len(small_buffer_client.count_metrics) == 0
@@ -149,12 +156,15 @@ class TestStatsDClient:
     def test_close_method(self, statsd_client: StatsDClient) -> None:
         statsd_client.count('test', 1)
         statsd_client.time('latency', 1.0)
+        statsd_client.gauge('memory', 100)
         assert len(statsd_client.count_metrics) == 1
-        assert len(statsd_client.time_gauge_metrics) == 1
+        assert len(statsd_client.time_metrics) == 1
+        assert len(statsd_client.gauge_metrics) == 1
 
         statsd_client.close()
         assert len(statsd_client.count_metrics) == 0
-        assert len(statsd_client.time_gauge_metrics) == 0
+        assert len(statsd_client.time_metrics) == 0
+        assert len(statsd_client.gauge_metrics) == 0
 
     def test_periodic_flushing(self, mock_socket: Mock) -> None:
         client = StatsDClient(
@@ -164,16 +174,20 @@ class TestStatsDClient:
             max_udp_size_bytes=1024,
             app_name='test_app',
         )
+        client.init()
 
         client.count('test', 1)
         client.time('latency', 1.0)
+        client.gauge('memory', 100)
         assert len(client.count_metrics) == 1
-        assert len(client.time_gauge_metrics) == 1
+        assert len(client.time_metrics) == 1
+        assert len(client.gauge_metrics) == 1
 
         time.sleep(1.0)
 
         assert len(client.count_metrics) == 0
-        assert len(client.time_gauge_metrics) == 0
+        assert len(client.time_metrics) == 0
+        assert len(client.gauge_metrics) == 0
         client.close()
 
     def test_socket_connection_error(self) -> None:
@@ -187,6 +201,7 @@ class TestStatsDClient:
                 max_udp_size_bytes=1024,
                 app_name='test_app',
             )
+            client.init()
 
             client.count('test1', 1)
             client.count('test2', 2)

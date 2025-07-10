@@ -77,6 +77,10 @@ def _convert_tags(tags: dict[str, str]) -> str:
 
 class StatsDClientABC(ABC):
     @abstractmethod
+    def init(self) -> None:
+        pass
+
+    @abstractmethod
     def flush(self) -> None:
         pass
 
@@ -95,6 +99,9 @@ class StatsDClientABC(ABC):
 
 class StatsDClientStub(StatsDClientABC):
     def __init__(self) -> None:
+        pass
+
+    def init(self) -> None:
         pass
 
     def flush(self) -> None:
@@ -117,8 +124,9 @@ class StatsDClient(StatsDClientABC):
         port: int,
         app_name: str,
         default_periodic_send_interval_sec: float = 60,
-        max_udp_size_bytes: int = 1024,
+        max_udp_size_bytes: int = 1432,
         reconnect_timeout_sec: float = 2,
+        udp_socket: socket.socket | None = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -129,7 +137,8 @@ class StatsDClient(StatsDClientABC):
 
         # Accumulation buffers (user operations add here)
         self.count_metrics: dict[MetricKey, Metric] = {}
-        self.time_gauge_metrics: list[Metric] = []
+        self.gauge_metrics: dict[MetricKey, Metric] = {}
+        self.time_metrics: list[Metric] = []
         self._cached_total_size_bytes: int = 0
 
         # Queue for immediate sending when size limit is reached
@@ -140,8 +149,11 @@ class StatsDClient(StatsDClientABC):
         self._socket_lock = threading.Lock()
         self._shutdown_event = threading.Event()
 
-        self.socket: socket.socket | None = None
-        self._connect()
+        self.socket: socket.socket | None = udp_socket
+
+    def init(self) -> None:
+        if self.socket is None:
+            self._connect()
         threading.Thread(target=self._periodic_flush_worker, daemon=True).start()
 
     def _connect(self) -> None:
@@ -153,8 +165,8 @@ class StatsDClient(StatsDClientABC):
 
             try:
                 self.socket.connect((self.host, self.port))
-            except OSError as e:
-                log.warning('statsd: connect error: %s', e)
+            except OSError:
+                log.exception('statsd: connect error')
                 self._reconnect()
 
     def _reconnect(self) -> None:
@@ -184,7 +196,8 @@ class StatsDClient(StatsDClientABC):
     def __collect_current_metrics(self) -> str:
         # must be called within self._metrics_lock
         return '\n'.join(
-            metric.to_statsd_format() for metric in chain(self.count_metrics.values(), self.time_gauge_metrics)
+            metric.to_statsd_format()
+            for metric in chain(self.count_metrics.values(), self.gauge_metrics.values(), self.time_metrics)
         )
 
     def __write(self, data: str) -> None:
@@ -195,13 +208,13 @@ class StatsDClient(StatsDClientABC):
 
         try:
             self.socket.send(data.encode('utf-8'))
-        except OSError as e:
-            log.warning('statsd: writing error: %s', e)
+        except OSError:
+            log.exception('statsd: writing error')
             self._reconnect()
 
     def flush(self) -> None:
         with self._metrics_lock:
-            if not self.count_metrics and not self.time_gauge_metrics:
+            if not self.count_metrics and not self.gauge_metrics and not self.time_metrics:
                 return
 
             self.__put_metrics_to_queue()
@@ -210,7 +223,8 @@ class StatsDClient(StatsDClientABC):
         data: str = self.__collect_current_metrics()
         self.send_queue.put(data)
         self.count_metrics.clear()
-        self.time_gauge_metrics.clear()
+        self.gauge_metrics.clear()
+        self.time_metrics.clear()
         self._cached_total_size_bytes = 0
 
     def count(self, name: str, value: int, **kwargs: str) -> None:
@@ -244,8 +258,19 @@ class StatsDClient(StatsDClientABC):
                 else:
                     self.count_metrics[metric_key] = metric
                     self.__add_metric_size(metric)
-            else:
-                self.time_gauge_metrics.append(metric)
+
+            elif metric_type == MetricType.GAUGE:
+                if metric_key in self.gauge_metrics:
+                    existing_metric = self.gauge_metrics[metric_key]
+                    self.__remove_metric_size(existing_metric)
+                    existing_metric.value = value
+                    self.__add_metric_size(existing_metric)
+                else:
+                    self.gauge_metrics[metric_key] = metric
+                    self.__add_metric_size(metric)
+
+            elif metric_type == MetricType.TIME:
+                self.time_metrics.append(metric)
                 self.__add_metric_size(metric)
 
     def close(self) -> None:
