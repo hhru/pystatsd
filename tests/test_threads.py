@@ -25,6 +25,7 @@ class TestThreadingAndRaceConditions:
             max_udp_size_bytes=1024,
             app_name='test_app',
         )
+        client.init()
         yield client
         client.close()
 
@@ -61,7 +62,7 @@ class TestThreadingAndRaceConditions:
         def add_metrics() -> None:
             start_event.wait()
             for i in range(100_000):
-                slow_client.gauge('flush_test', i)
+                slow_client.time('flush_test', i)
             stop_event.set()
 
         def flush_metrics() -> None:
@@ -93,6 +94,7 @@ class TestThreadingAndRaceConditions:
             max_udp_size_bytes=1024,
             app_name='test_app',
         )
+        fast_client.init()
 
         def mock_send(data: bytes) -> None:
             nonlocal sent_count
@@ -114,3 +116,4 @@ class TestThreadingAndRaceConditions:
         time.sleep(0.5)  # Wait for worker thread to process
 
         assert sent_count == 100_000, f'Race condition found! Expected 100000, got {sent_count}'
+        fast_client.close()

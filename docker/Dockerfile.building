@@ -9,3 +9,4 @@ COPY tests /home/building/tests/
 WORKDIR /home/building
 
 RUN --mount=type=ssh poetry install --no-root
+RUN pip install --no-deps .
