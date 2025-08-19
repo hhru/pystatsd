@@ -192,14 +192,14 @@ reference = "pypi-mirror"
 
 [[package]]
 name = "pystolint"
-version = "0.2.14"
+version = "0.2.17"
 description = "Linters composer"
 optional = false
-python-versions = "<3.14,>=3.9"
+python-versions = ">=3.9"
 groups = ["test"]
 files = [
-    {file = "pystolint-0.2.14-py3-none-any.whl", hash = "sha256:5df8f1eb9a7c9b1a16a4b71b9b9d3bb2bcd7c9d7158f08ca8055e910e2d3e181"},
-    {file = "pystolint-0.2.14.tar.gz", hash = "sha256:89d1c9c8cf1742ac651b881150ed6849e9c1881a0218013b24c9d52ce8b963c1"},
+    {file = "pystolint-0.2.17-py3-none-any.whl", hash = "sha256:bb456a481b93acbae1091192190b7e071c517adf92d380da0fed64dc448c0bc7"},
+    {file = "pystolint-0.2.17.tar.gz", hash = "sha256:5dc7d4ee7ffa6df39c4f072c303e491e2f87832a00bb3a61719a4624e5f4779f"},
 ]
 
 [package.dependencies]
@@ -362,5 +362,5 @@ reference = "pypi-mirror"
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.9,<3.14"
-content-hash = "49afbece9a1364420c7612fda12e05923f1e9d9c269f61a7605a75018bdd0f47"
+python-versions = ">=3.9,<4"
+content-hash = "f3149321f4f9ee8d7ddfebf6213f3c00ad87fe00a89a426f5cf0eb2660549df7"
