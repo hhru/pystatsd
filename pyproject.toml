@@ -14,19 +14,19 @@ readme = 'README.md'
 [[tool.poetry.source]]
 name = 'pypi-mirror'
 url = 'https://devpi.pyn.ru/root/pypi/+simple/'
-priority = 'primary'
+priority = 'supplemental'
 
 [[tool.poetry.source]]
 name = 'hhdev'
 url = 'https://devpi.pyn.ru/hh/hhdev/+simple/'
-priority = 'explicit'
+priority = 'primary'
 
 [tool.poetry.dependencies]
-python = '>=3.9,<3.14'
+python = '>=3.9,<4'
 
 [tool.poetry.group.test.dependencies]
 pytest = '8.3.3'
-pystolint = '0.2.14'
+pystolint = '0.2.17'
 
 [tool.pytest.ini_options]
 addopts = '''
